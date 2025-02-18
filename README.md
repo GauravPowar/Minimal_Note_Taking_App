@@ -1,4 +1,3 @@
-# Minimal_Note_Taking_App
 # Minimalist Note-Taking App
 
 A simple, lightweight desktop note-taking application built using Python and Tkinter. This app allows users to create, edit, delete, and save notes with an easy-to-use interface. It also includes a dark mode for better usability.
