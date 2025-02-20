@@ -36,10 +36,11 @@ def delete_note():
             text_area.delete("1.0", tk.END)
             save_notes()
 
-def update_list():
+def update_list(filter_text=""):
     listbox.delete(0, tk.END)
-    for title in notes.keys():
-        listbox.insert(tk.END, title)
+    for title in sorted(notes.keys(), key=lambda x: (x not in pinned_notes, x)):
+        if filter_text.lower() in title.lower():
+            listbox.insert(tk.END, title)
 
 def load_selected_note():
     selected = listbox.curselection()
@@ -55,36 +56,52 @@ def save_note():
         title = listbox.get(selected[0])
         notes[title] = text_area.get("1.0", tk.END).strip()
         save_notes()
-        messagebox.showinfo("Saved", "Note saved successfully!")
 
 def toggle_dark_mode():
     global dark_mode
     dark_mode = not dark_mode
     bg_color = "#2E2E2E" if dark_mode else "#F5F5F5"
     fg_color = "#FFFFFF" if dark_mode else "#000000"
-    button_color = "#555" if dark_mode else "#DDD"
     text_area.config(bg=bg_color, fg=fg_color, insertbackground=fg_color)
     listbox.config(bg=bg_color, fg=fg_color)
-    root.style.configure("TButton", background=button_color, foreground=fg_color)
-    root.style.configure("TFrame", background=bg_color)
-    root.style.configure("TLabel", background=bg_color, foreground=fg_color)
+    search_entry.config(bg=bg_color, fg=fg_color, insertbackground=fg_color)
     root.configure(bg=bg_color)
 
-dark_mode = False
+def search_notes():
+    query = search_entry.get()
+    update_list(query)
+
+def toggle_pin():
+    selected = listbox.curselection()
+    if selected:
+        title = listbox.get(selected[0])
+        if title in pinned_notes:
+            pinned_notes.remove(title)
+        else:
+            pinned_notes.add(title)
+        update_list()
+
 notes = load_notes()
+pinned_notes = set()
+dark_mode = False
 
 # UI Setup
 root = tk.Tk()
-root.title("Minimalist Note-Taking App")
-root.geometry("600x500")
-root.style = ttk.Style()
-root.style.theme_use("clam")
+root.title("Advanced Note-Taking App")
+root.geometry("700x500")
 root.configure(bg="#F5F5F5")
+
+search_frame = ttk.Frame(root, padding=10)
+search_frame.pack(fill=tk.X)
+search_entry = ttk.Entry(search_frame, width=50)
+search_entry.pack(side=tk.LEFT, padx=5)
+search_button = ttk.Button(search_frame, text="Search", command=search_notes)
+search_button.pack(side=tk.RIGHT)
 
 frame = ttk.Frame(root, padding=10)
 frame.pack(fill=tk.BOTH, expand=True)
 
-listbox = tk.Listbox(frame, width=30, height=10, bg="#F5F5F5", fg="#000", selectbackground="#007BFF", selectforeground="#FFF")
+listbox = tk.Listbox(frame, width=30, height=15, bg="#F5F5F5", fg="#000", selectbackground="#007BFF", selectforeground="#FFF")
 listbox.pack(side=tk.LEFT, padx=10, fill=tk.BOTH, expand=True)
 scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=listbox.yview)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -102,8 +119,7 @@ ttk.Button(button_frame, text="Delete Note", command=delete_note).grid(row=0, co
 save_button = ttk.Button(button_frame, text="Save Note", command=save_note, state=tk.DISABLED)
 save_button.grid(row=0, column=2, padx=5)
 ttk.Button(button_frame, text="Dark Mode", command=toggle_dark_mode).grid(row=0, column=3, padx=5)
+ttk.Button(button_frame, text="Pin Note", command=toggle_pin).grid(row=0, column=4, padx=5)
 
 update_list()
 root.mainloop()
-
-
