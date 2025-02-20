@@ -82,7 +82,7 @@ def toggle_pin():
         update_list()
 
 def show_about():
-    messagebox.showinfo("About", "Advanced Note-Taking App v1.0\nCreated by Your Name")
+    messagebox.showinfo("About", "Minimal Note-Taking App v1.0\nCreated by Gaurav Powar\nProudly Open-Source")
 
 notes = load_notes()
 pinned_notes = set()
