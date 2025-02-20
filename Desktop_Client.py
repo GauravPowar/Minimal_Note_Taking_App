@@ -90,7 +90,7 @@ dark_mode = False
 
 # UI Setup
 root = tk.Tk()
-root.title("Advanced Note-Taking App")
+root.title("Minimal Note-Taking App")
 root.geometry("700x500")
 root.configure(bg="#F5F5F5")
 
