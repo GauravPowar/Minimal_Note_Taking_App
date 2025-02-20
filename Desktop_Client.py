@@ -81,6 +81,9 @@ def toggle_pin():
             pinned_notes.add(title)
         update_list()
 
+def show_about():
+    messagebox.showinfo("About", "Advanced Note-Taking App v1.0\nCreated by Your Name")
+
 notes = load_notes()
 pinned_notes = set()
 dark_mode = False
@@ -90,6 +93,30 @@ root = tk.Tk()
 root.title("Advanced Note-Taking App")
 root.geometry("700x500")
 root.configure(bg="#F5F5F5")
+
+# Menu Bar
+menu_bar = tk.Menu(root)
+root.config(menu=menu_bar)
+
+file_menu = tk.Menu(menu_bar, tearoff=0)
+file_menu.add_command(label="New Note", command=add_note)
+file_menu.add_command(label="Save Note", command=save_note)
+file_menu.add_separator()
+file_menu.add_command(label="Exit", command=root.quit)
+menu_bar.add_cascade(label="File", menu=file_menu)
+
+edit_menu = tk.Menu(menu_bar, tearoff=0)
+edit_menu.add_command(label="Delete Note", command=delete_note)
+edit_menu.add_command(label="Pin Note", command=toggle_pin)
+menu_bar.add_cascade(label="Edit", menu=edit_menu)
+
+view_menu = tk.Menu(menu_bar, tearoff=0)
+view_menu.add_command(label="Toggle Dark Mode", command=toggle_dark_mode)
+menu_bar.add_cascade(label="View", menu=view_menu)
+
+help_menu = tk.Menu(menu_bar, tearoff=0)
+help_menu.add_command(label="About", command=show_about)
+menu_bar.add_cascade(label="Help", menu=help_menu)
 
 search_frame = ttk.Frame(root, padding=10)
 search_frame.pack(fill=tk.X)
