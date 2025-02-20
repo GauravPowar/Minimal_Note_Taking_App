@@ -59,11 +59,15 @@ def save_note():
 def toggle_dark_mode():
     global dark_mode
     dark_mode = not dark_mode
-    bg_color = "#333" if dark_mode else "#FFF"
-    fg_color = "#FFF" if dark_mode else "#000"
+    bg_color = "#2E2E2E" if dark_mode else "#F5F5F5"
+    fg_color = "#FFFFFF" if dark_mode else "#000000"
+    button_color = "#444" if dark_mode else "#DDD"
+    
+    root.config(bg=bg_color)
     text_area.config(bg=bg_color, fg=fg_color, insertbackground=fg_color)
     listbox.config(bg=bg_color, fg=fg_color)
-    root.config(bg=bg_color)
+    for button in button_frame.winfo_children():
+        button.config(bg=button_color, fg=fg_color, relief=tk.FLAT)
 
 dark_mode = False
 notes = load_notes()
@@ -71,29 +75,33 @@ notes = load_notes()
 # UI Setup
 root = tk.Tk()
 root.title("Minimalist Note-Taking App")
-root.geometry("500x400")
+root.geometry("550x450")
+root.config(bg="#F5F5F5")
 
-frame = tk.Frame(root)
-frame.pack(pady=10)
+frame = tk.Frame(root, bg=root['bg'])
+frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
 
-listbox = tk.Listbox(frame, width=30, height=10)
-listbox.pack(side=tk.LEFT, padx=10)
+listbox = tk.Listbox(frame, width=30, height=10, bg=root['bg'], fg="#000", selectbackground="#007BFF", selectforeground="#FFF")
+listbox.pack(side=tk.LEFT, padx=10, fill=tk.BOTH, expand=True)
 scrollbar = tk.Scrollbar(frame, orient=tk.VERTICAL, command=listbox.yview)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 listbox.config(yscrollcommand=scrollbar.set)
 listbox.bind("<<ListboxSelect>>", lambda e: load_selected_note())
 
-text_area = tk.Text(root, wrap=tk.WORD, height=10)
+text_area = tk.Text(root, wrap=tk.WORD, height=10, bg="#F5F5F5", fg="#000", insertbackground="#000")
 text_area.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
 
-button_frame = tk.Frame(root)
-button_frame.pack()
+button_frame = tk.Frame(root, bg=root['bg'])
+button_frame.pack(pady=5)
 
-tk.Button(button_frame, text="Add Note", command=add_note).grid(row=0, column=0)
-tk.Button(button_frame, text="Delete Note", command=delete_note).grid(row=0, column=1)
-save_button = tk.Button(button_frame, text="Save Note", command=save_note, state=tk.DISABLED)
-save_button.grid(row=0, column=2)
-tk.Button(button_frame, text="Dark Mode", command=toggle_dark_mode).grid(row=0, column=3)
+tk.Button(button_frame, text="Add Note", command=add_note, bg="#DDD", fg="#000", width=10).grid(row=0, column=0, padx=5)
+tk.Button(button_frame, text="Delete Note", command=delete_note, bg="#DDD", fg="#000", width=10).grid(row=0, column=1, padx=5)
+save_button = tk.Button(button_frame, text="Save Note", command=save_note, bg="#DDD", fg="#000", width=10, state=tk.DISABLED)
+save_button.grid(row=0, column=2, padx=5)
+tk.Button(button_frame, text="Dark Mode", command=toggle_dark_mode, bg="#444", fg="#FFF", width=10).grid(row=0, column=3, padx=5)
 
 update_list()
 root.mainloop()
+
+
+
