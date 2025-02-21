@@ -1,6 +1,6 @@
 # Minimalist Note-Taking App  
 
-![License](https://img.shields.io/github/license/GauravPowar/Minimal_Note_Taking_App)  
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python](https://img.shields.io/badge/Python-3.x-blue)  
 ![Repo Size](https://img.shields.io/github/repo-size/GauravPowar/Minimal_Note_Taking_App)  
 ![Stars](https://img.shields.io/github/stars/GauravPowar/Minimal_Note_Taking_App?style=social)  
