@@ -1,38 +1,91 @@
 import tkinter as tk
-from tkinter import messagebox, simpledialog, ttk
-import json
+from tkinter import messagebox, simpledialog, ttk, filedialog
 import os
-from typing import Dict, Set
+from typing import Dict, Set, Optional
+import configparser
 
-class NoteApp:
+class MarkdownNoteApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.notes_file = "notes.json"
-        self.notes: Dict[str, str] = self.load_notes()
+        self.config_file = "notes_config.ini"
+        self.default_extension = ".md"
         self.pinned_notes: Set[str] = set()
         self.dark_mode = False
         self.current_note = None
+        self.notes: Dict[str, str] = {}
+        
+        # Load configuration
+        self.config = configparser.ConfigParser()
+        self.load_config()
         
         self.setup_ui()
+        self.load_notes()
         self.update_list()
     
-    def load_notes(self) -> Dict[str, str]:
-        """Load notes from JSON file."""
-        if os.path.exists(self.notes_file):
-            try:
-                with open(self.notes_file, "r") as file:
-                    return json.load(file)
-            except (json.JSONDecodeError, IOError):
-                messagebox.showerror("Error", "Failed to load notes file")
-        return {}
+    def load_config(self) -> None:
+        """Load or create configuration file."""
+        self.config.read(self.config_file)
+        
+        if not self.config.has_section('Settings'):
+            self.config.add_section('Settings')
+            self.config.set('Settings', 'notes_path', os.getcwd())
+            self.save_config()
+        
+        self.notes_path = self.config.get('Settings', 'notes_path', fallback=os.getcwd())
 
-    def save_notes(self) -> None:
-        """Save notes to JSON file."""
+    def save_config(self) -> None:
+        """Save configuration to file."""
+        with open(self.config_file, 'w') as configfile:
+            self.config.write(configfile)
+
+    def set_notes_path(self) -> None:
+        """Set a new path for saving notes."""
+        new_path = filedialog.askdirectory(initialdir=self.notes_path)
+        if new_path:
+            self.notes_path = new_path
+            self.config.set('Settings', 'notes_path', new_path)
+            self.save_config()
+            self.load_notes()
+            self.update_list()
+
+    def get_note_path(self, title: str) -> str:
+        """Get full path for a note file."""
+        return os.path.join(self.notes_path, f"{title}{self.default_extension}")
+
+    def load_notes(self) -> None:
+        """Load notes from markdown files in the notes directory."""
+        self.notes = {}
+        self.pinned_notes = set()
+        
         try:
-            with open(self.notes_file, "w") as file:
-                json.dump(self.notes, file, indent=4)
-        except IOError:
-            messagebox.showerror("Error", "Failed to save notes")
+            if not os.path.exists(self.notes_path):
+                os.makedirs(self.notes_path)
+                
+            for filename in os.listdir(self.notes_path):
+                if filename.endswith(self.default_extension):
+                    title = filename[:-len(self.default_extension)]
+                    try:
+                        with open(os.path.join(self.notes_path, filename), 'r', encoding='utf-8') as file:
+                            content = file.read()
+                            self.notes[title] = content
+                            
+                            # Check if this is a pinned note (first line contains #pinned)
+                            if content.startswith("#pinned\n"):
+                                self.pinned_notes.add(title)
+                    except (IOError, UnicodeDecodeError) as e:
+                        print(f"Error loading note {filename}: {e}")
+        except OSError as e:
+            messagebox.showerror("Error", f"Failed to access notes directory: {e}")
+
+    def save_note_to_file(self, title: str, content: str) -> bool:
+        """Save a single note to file."""
+        try:
+            with open(self.get_note_path(title), 'w', encoding='utf-8') as file:
+                file.write(content)
+            return True
+        except IOError as e:
+            messagebox.showerror("Error", f"Failed to save note: {e}")
+            return False
 
     def add_note(self) -> None:
         """Add a new note."""
@@ -40,16 +93,21 @@ class NoteApp:
         if not title:
             return
             
-        if title in self.notes:
+        # Remove invalid characters from filename
+        safe_title = "".join(c for c in title if c not in '\\/:*?"<>|')
+        if safe_title != title:
+            messagebox.showwarning("Warning", "Removed invalid characters from note title")
+            
+        if safe_title in self.notes:
             messagebox.showerror("Error", "Note with this title already exists!")
             return
             
-        self.notes[title] = ""
-        self.update_list()
-        self.save_notes()
-        self.listbox.selection_clear(0, tk.END)
-        self.listbox.selection_set(tk.END)
-        self.load_selected_note()
+        self.notes[safe_title] = ""
+        if self.save_note_to_file(safe_title, ""):
+            self.update_list()
+            self.listbox.selection_clear(0, tk.END)
+            self.listbox.selection_set(tk.END)
+            self.load_selected_note()
 
     def delete_note(self) -> None:
         """Delete the selected note."""
@@ -61,15 +119,17 @@ class NoteApp:
         if not messagebox.askyesno("Delete", f"Delete '{title}'?"):
             return
             
-        if title in self.pinned_notes:
-            self.pinned_notes.remove(title)
-            
-        del self.notes[title]
-        self.update_list()
-        self.text_area.delete("1.0", tk.END)
-        self.save_notes()
-        self.current_note = None
-        self.save_button.config(state=tk.DISABLED)
+        try:
+            os.remove(self.get_note_path(title))
+            if title in self.pinned_notes:
+                self.pinned_notes.remove(title)
+            del self.notes[title]
+            self.update_list()
+            self.text_area.delete("1.0", tk.END)
+            self.current_note = None
+            self.save_button.config(state=tk.DISABLED)
+        except OSError as e:
+            messagebox.showerror("Error", f"Failed to delete note: {e}")
 
     def update_list(self, filter_text: str = "") -> None:
         """Update the notes list with optional filtering."""
@@ -79,7 +139,6 @@ class NoteApp:
         sorted_notes = sorted(
             self.notes.keys(),
             key=lambda x: (x not in self.pinned_notes, x.lower())
-        )
         
         for title in sorted_notes:
             if filter_text.lower() in title.lower():
@@ -104,8 +163,17 @@ class NoteApp:
         if not self.current_note:
             return
             
-        self.notes[self.current_note] = self.text_area.get("1.0", tk.END).strip()
-        self.save_notes()
+        content = self.text_area.get("1.0", tk.END).strip()
+        self.notes[self.current_note] = content
+        
+        if self.save_note_to_file(self.current_note, content):
+            # Update pinned status based on content
+            if content.startswith("#pinned\n"):
+                self.pinned_notes.add(self.current_note)
+            elif self.current_note in self.pinned_notes:
+                self.pinned_notes.remove(self.current_note)
+            
+            self.update_list()
 
     def toggle_dark_mode(self) -> None:
         """Toggle between dark and light mode."""
@@ -116,7 +184,7 @@ class NoteApp:
         
         widgets = [
             self.text_area, self.listbox, self.search_entry, 
-            self.root, self.button_frame
+            self.root, self.button_frame, self.status_bar
         ]
         
         for widget in widgets:
@@ -131,6 +199,12 @@ class NoteApp:
         self.listbox.config(
             selectbackground="#007BFF" if not self.dark_mode else "#005BBA",
             selectforeground="#FFF"
+        )
+        
+        # Update status bar colors
+        self.status_bar.config(
+            bg=bg_color,
+            fg=fg_color
         )
 
     def search_notes(self) -> None:
@@ -147,15 +221,22 @@ class NoteApp:
         title = self.listbox.get(selected[0])
         if title in self.pinned_notes:
             self.pinned_notes.remove(title)
+            # Remove #pinned tag if it exists
+            if self.notes[title].startswith("#pinned\n"):
+                self.notes[title] = self.notes[title][8:]
         else:
             self.pinned_notes.add(title)
+            # Add #pinned tag if not present
+            if not self.notes[title].startswith("#pinned\n"):
+                self.notes[title] = f"#pinned\n{self.notes[title]}"
+        
+        self.save_note_to_file(title, self.notes[title])
         self.update_list()
-        self.save_notes()
 
     def setup_ui(self) -> None:
         """Initialize the user interface."""
-        self.root.title("Optimized Note-Taking App")
-        self.root.geometry("800x600")
+        self.root.title("Markdown Note-Taking App")
+        self.root.geometry("900x650")
         self.root.configure(bg="#F5F5F5")
         
         # Configure grid weights for resizing
@@ -165,8 +246,10 @@ class NoteApp:
         self.create_menu()
         self.create_widgets()
         
-        # Bind Ctrl+S for saving
+        # Bind keyboard shortcuts
         self.root.bind('<Control-s>', lambda e: self.save_note())
+        self.root.bind('<Control-n>', lambda e: self.add_note())
+        self.root.bind('<Control-o>', lambda e: self.set_notes_path())
 
     def create_menu(self) -> None:
         """Create the menu bar."""
@@ -177,6 +260,7 @@ class NoteApp:
         file_menu = tk.Menu(menu_bar, tearoff=0)
         file_menu.add_command(label="New Note", command=self.add_note, accelerator="Ctrl+N")
         file_menu.add_command(label="Save Note", command=self.save_note, accelerator="Ctrl+S")
+        file_menu.add_command(label="Set Notes Location", command=self.set_notes_path, accelerator="Ctrl+O")
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
         menu_bar.add_cascade(label="File", menu=file_menu)
@@ -196,13 +280,19 @@ class NoteApp:
         help_menu = tk.Menu(menu_bar, tearoff=0)
         help_menu.add_command(label="About", command=self.show_about)
         menu_bar.add_cascade(label="Help", menu=help_menu)
-        
-        # Bind keyboard shortcuts
-        self.root.bind('<Control-n>', lambda e: self.add_note())
-        self.root.bind('<Control-N>', lambda e: self.add_note())
 
     def create_widgets(self) -> None:
         """Create and arrange all widgets."""
+        # Status bar
+        self.status_bar = tk.Label(
+            self.root,
+            text=f"Notes location: {self.notes_path}",
+            bd=1,
+            relief=tk.SUNKEN,
+            anchor=tk.W
+        )
+        self.status_bar.grid(row=3, column=0, sticky="ew")
+        
         # Search frame
         search_frame = ttk.Frame(self.root, padding=10)
         search_frame.grid(row=0, column=0, sticky="ew")
@@ -230,7 +320,7 @@ class NoteApp:
         self.listbox = tk.Listbox(
             list_frame,
             width=30,
-            height=20,
+            height=25,
             bg="#F5F5F5",
             fg="#000",
             selectbackground="#007BFF",
@@ -254,7 +344,7 @@ class NoteApp:
             bg="#F5F5F5",
             fg="#000",
             insertbackground="#000",
-            font=("Arial", 12),
+            font=("Consolas", 12),  # Monospaced font better for markdown
             yscrollcommand=text_scrollbar.set
         )
         self.text_area.pack(fill=tk.BOTH, expand=True)
@@ -269,7 +359,8 @@ class NoteApp:
             ("Delete Note", self.delete_note),
             ("Save Note", self.save_note),
             ("Dark Mode", self.toggle_dark_mode),
-            ("Pin Note", self.toggle_pin)
+            ("Pin Note", self.toggle_pin),
+            ("Set Location", self.set_notes_path)
         ]
         
         for i, (text, command) in enumerate(buttons):
@@ -286,17 +377,22 @@ class NoteApp:
     def show_about(self) -> None:
         """Show about dialog."""
         about_text = (
-            "Optimized Note-Taking App v2.0\n"
-            "Created with Python and Tkinter\n"
+            "Markdown Note-Taking App\n"
+            "Version 2.0\n\n"
             "Features:\n"
-            "- Pinned notes\n"
-            "- Dark mode\n"
-            "- Keyboard shortcuts\n"
-            "- Responsive layout"
+            "- Notes saved as Markdown (.md) files\n"
+            "- Customizable storage location\n"
+            "- Pinned notes support\n"
+            "- Dark/light mode\n"
+            "- Search functionality\n\n"
+            "Keyboard Shortcuts:\n"
+            "Ctrl+N: New note\n"
+            "Ctrl+S: Save note\n"
+            "Ctrl+O: Set notes location"
         )
         messagebox.showinfo("About", about_text)
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = NoteApp(root)
+    app = MarkdownNoteApp(root)
     root.mainloop()
